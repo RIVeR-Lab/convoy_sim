@@ -77,9 +77,14 @@ shift = 0.2
 wiggle = 0.015
 
 # Box Plot with Markers by Speed
-fast_color = "#38EE93"
-med_color = "#F1E04B"
-slow_color = "#EC7E18"
+do_color_by_percentile = False
+rng = np.random.default_rng(seed=2025)
+base_color_options = ["#353535", "#555454", "#1D1D1D", "#757575", "#4E4B4B"]
+base_color = lambda: rng.choice(base_color_options)
+
+fast_color = (lambda: "#38EE93") if do_color_by_percentile else base_color
+med_color = (lambda: "#F1E04B") if do_color_by_percentile else base_color
+slow_color = (lambda: "#EC7E18") if do_color_by_percentile else base_color
 
 
 
@@ -135,10 +140,10 @@ for participant, data in bests.items():
 # fig, axs = plt.subplots(2,2, figsize=(8,8))
 
 # conditions = [
-#     ("sim",  "short", axs[0,0], "Sim: Short"),
-#     ("sim",  "long",  axs[0,1], "Sim: Long"),
-#     ("real", "short", axs[1,0], "Real: Short"),
-#     ("real", "long",  axs[1,1], "Real: Long"),
+#     ("sim",  "short", axs[0,0], "Sim: Course A"),
+#     ("sim",  "long",  axs[0,1], "Sim: Course B"),
+#     ("real", "short", axs[1,0], "Real: Course A"),
+#     ("real", "long",  axs[1,1], "Real: Course B"),
 # ]
 
 # for env, course, ax, title in conditions:
@@ -160,13 +165,13 @@ for participant, data in bests.items():
 
 
 # Fig 2
-fig, axs = plt.subplots(2,2, figsize=(6,6), sharex="col", sharey="row")
+fig, axs = plt.subplots(2,2, figsize=(5,5), sharex="col", sharey="row")
 
 conditions = [
-    ("sim",  "short", axs[0,0], "Sim: Short"),
-    ("sim",  "long",  axs[0,1], "Sim: Long"),
-    ("real", "short", axs[1,0], "Real: Short"),
-    ("real", "long",  axs[1,1], "Real: Long"),
+    ("sim",  "short", axs[0,0], "Sim: Course A"),
+    ("sim",  "long",  axs[0,1], "Sim: Course B"),
+    ("real", "short", axs[1,0], "Hardware: Course A"),
+    ("real", "long",  axs[1,1], "Hardware: Course B"),
 ]
 
 first = True
@@ -174,27 +179,31 @@ third = False
 for env, course, ax, title in conditions:
     convoy = data_lists[f"{env}_{course}_convoy"]
     teleop = data_lists[f"{env}_{course}_teleop"]
-    
+    kc = math.ceil(len(convoy)/3)
+    kt = math.ceil(len(teleop)/3)
+    n_fast_c, n_med_c, n_slow_c = kc, len(convoy[kc:2*kc]), len(convoy[2*kc:])
+    n_fast_t, n_med_t, n_slow_t = kt, len(teleop[kt:2*kt]), len(teleop[2*kt:])
+
     ax.boxplot([convoy, teleop], tick_labels=["Convoy", "Teleop"])
 
     # ax.boxplot([np.sort(convoy)[0:math.ceil(len(convoy)/3)], np.sort(teleop)[0:math.ceil(len(teleop)/3)]], tick_labels=["Convoy", "Teleop"])
-    ax.scatter(1*np.ones_like(convoy)[0:math.ceil(len(convoy)/3)]+shift+wiggle*(-1)**np.arange(len(convoy))[0:math.ceil(len(convoy)/3)], np.sort(convoy)[0:math.ceil(len(convoy)/3)], zorder=5, color=fast_color, s=20)
-    ax.scatter(2*np.ones_like(teleop)[0:math.ceil(len(teleop)/3)]-shift+wiggle*(-1)**np.arange(len(teleop))[0:math.ceil(len(teleop)/3)], np.sort(teleop)[0:math.ceil(len(teleop)/3)], zorder=5, color=fast_color, s=20)
+    ax.scatter(1*np.ones_like(convoy)[0:math.ceil(len(convoy)/3)]+shift+wiggle*(-1)**np.arange(len(convoy))[0:math.ceil(len(convoy)/3)], np.sort(convoy)[0:math.ceil(len(convoy)/3)], zorder=5, color=[fast_color() for _ in range(n_fast_c)], s=20)
+    ax.scatter(2*np.ones_like(teleop)[0:math.ceil(len(teleop)/3)]-shift+wiggle*(-1)**np.arange(len(teleop))[0:math.ceil(len(teleop)/3)], np.sort(teleop)[0:math.ceil(len(teleop)/3)], zorder=5, color=[fast_color() for _ in range(n_fast_t)], s=20)
 
     # ax.boxplot([np.sort(convoy)[math.ceil(len(convoy)/3):2*math.ceil(len(convoy)/3)], np.sort(teleop)[math.ceil(len(teleop)/3):2*math.ceil(len(teleop)/3)]], tick_labels=["Convoy", "Teleop"])
-    ax.scatter(1*np.ones_like(convoy)[math.ceil(len(convoy)/3):2*math.ceil(len(convoy)/3)]+shift+wiggle*(-1)**np.arange(len(convoy))[math.ceil(len(convoy)/3):2*math.ceil(len(convoy)/3)], np.sort(convoy)[math.ceil(len(convoy)/3):2*math.ceil(len(convoy)/3)], zorder=4, color=med_color, s=20)
-    ax.scatter(2*np.ones_like(teleop)[math.ceil(len(teleop)/3):2*math.ceil(len(teleop)/3)]-shift+wiggle*(-1)**np.arange(len(teleop))[math.ceil(len(teleop)/3):2*math.ceil(len(teleop)/3)], np.sort(teleop)[math.ceil(len(teleop)/3):2*math.ceil(len(teleop)/3)], zorder=4, color=med_color, s=20)
+    ax.scatter(1*np.ones_like(convoy)[math.ceil(len(convoy)/3):2*math.ceil(len(convoy)/3)]+shift+wiggle*(-1)**np.arange(len(convoy))[math.ceil(len(convoy)/3):2*math.ceil(len(convoy)/3)], np.sort(convoy)[math.ceil(len(convoy)/3):2*math.ceil(len(convoy)/3)], zorder=4, color=[med_color() for _ in range(n_med_c)], s=20)
+    ax.scatter(2*np.ones_like(teleop)[math.ceil(len(teleop)/3):2*math.ceil(len(teleop)/3)]-shift+wiggle*(-1)**np.arange(len(teleop))[math.ceil(len(teleop)/3):2*math.ceil(len(teleop)/3)], np.sort(teleop)[math.ceil(len(teleop)/3):2*math.ceil(len(teleop)/3)], zorder=4, color=[med_color() for _ in range(n_med_t)], s=20)
 
     # ax.boxplot([np.sort(convoy)[2*math.ceil(len(convoy)/3):], np.sort(teleop)[2*math.ceil(len(teleop)/3):]], tick_labels=["Convoy", "Teleop"])
-    ax.scatter(1*np.ones_like(convoy)[2*math.ceil(len(convoy)/3):]+shift+wiggle*(-1)**np.arange(len(convoy))[2*math.ceil(len(convoy)/3):], np.sort(convoy)[2*math.ceil(len(convoy)/3):], zorder=3, color=slow_color, s=20)
-    ax.scatter(2*np.ones_like(teleop)[2*math.ceil(len(teleop)/3):]-shift+wiggle*(-1)**np.arange(len(teleop))[2*math.ceil(len(teleop)/3):], np.sort(teleop)[2*math.ceil(len(teleop)/3):], zorder=3, color=slow_color, s=20)
+    ax.scatter(1*np.ones_like(convoy)[2*math.ceil(len(convoy)/3):]+shift+wiggle*(-1)**np.arange(len(convoy))[2*math.ceil(len(convoy)/3):], np.sort(convoy)[2*math.ceil(len(convoy)/3):], zorder=3, color=[slow_color() for _ in range(n_slow_c)], s=20)
+    ax.scatter(2*np.ones_like(teleop)[2*math.ceil(len(teleop)/3):]-shift+wiggle*(-1)**np.arange(len(teleop))[2*math.ceil(len(teleop)/3):], np.sort(teleop)[2*math.ceil(len(teleop)/3):], zorder=3, color=[slow_color() for _ in range(n_slow_t)], s=20)
 
     ax.set_title(title)
 
     
 
     if first or third:
-        ax.set_ylabel("Completion Time (s)")
+        ax.set_ylabel("Total Mission Time (s)")
 
     if not first and not third:
         third = True
@@ -202,12 +211,13 @@ for env, course, ax, title in conditions:
         third = False
 
     if first:
-        legend_elements = [
-            Line2D([0], [0], marker='o', color='w', markerfacecolor=slow_color,  markersize=6, label='Lower Third'),
-            Line2D([0], [0], marker='o', color='w', markerfacecolor=med_color,  markersize=6, label='Middle Third'),
-            Line2D([0], [0], marker='o', color='w', markerfacecolor=fast_color, markersize=6, label='Top Third'),
-        ]
-        ax.legend(handles=legend_elements)
+        if do_color_by_percentile:
+            legend_elements = [
+                Line2D([0], [0], marker='o', color='w', markerfacecolor=slow_color(),  markersize=6, label='Lower Third'),
+                Line2D([0], [0], marker='o', color='w', markerfacecolor=med_color(),  markersize=6, label='Middle Third'),
+                Line2D([0], [0], marker='o', color='w', markerfacecolor=fast_color(), markersize=6, label='Top Third'),
+            ]
+            ax.legend(handles=legend_elements)
         first = False
 
 

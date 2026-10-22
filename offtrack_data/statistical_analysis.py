@@ -80,6 +80,16 @@ def best_attempts(data):
         }
     return result
 
+# def best_attempts(data):
+#     result = {}
+#     for participant, d in data.items():
+#         result[participant] = {
+#             "mode": d["mode"],
+#             "sim":  {"short": np.mean(d["sim"]["short"]), "long": np.mean(d["sim"]["long"])},
+#             "real":   {"short": np.mean(d["real"]["short"]),  "long": np.mean(d["real"]["long"])},
+#         }
+#     return result
+
 def calc_pairwise_wins(convoy, teleop):
     wins = sum(1 for a, b in product(convoy, teleop) if a < b)
     ties = sum(1 for a, b in product(convoy, teleop) if a == b)
@@ -143,7 +153,7 @@ for type, scens in bests.items():
         pool = convoy_times + teleop_times
         n1, N = len(convoy_times), len(pool)
         expected = n1 * len(teleop_times) / 2
-        observed = abs(calc_pairwise_wins(convoy_times, teleop_times) - expected)
+        observed = calc_pairwise_wins(convoy_times, teleop_times) - expected
     
         total = extreme = 0
         for idx in combinations(range(N), n1):
