@@ -125,7 +125,8 @@ history = {
     "est": {k: [] for k in follower_ids},
     "trk": {k: [] for k in follower_ids},
     "lat": {k: [] for k in follower_ids},
-    "lead_cte": []
+    "lead_cte": [],
+    "lead_cte_front": [],
 }
 
 
@@ -333,7 +334,11 @@ try:
             history["t"].append(current_time - start_time)
             history["poses"].append([(veh.x, veh.y, veh.theta) for veh in vehicles.values()])
             if leader_mode == LEADER_MODES.PATH:
-                history["lead_cte"].append(lateral_deviation((vehicles[0].x, vehicles[0].y), ref_path, key="leader"))
+                lead = vehicles[0]
+                history["lead_cte"].append(lateral_deviation((lead.x, lead.y), ref_path, key="leader"))
+                fx = lead.x + lead.L * math.cos(lead.theta)
+                fy = lead.y + lead.L * math.sin(lead.theta)
+                history["lead_cte_front"].append(lateral_deviation((fx, fy), ref_path, key="leader_front"))
             for k in follower_ids:
                 history["est"][k].append(est[k])
                 history["trk"][k].append(trk[k])
@@ -389,5 +394,6 @@ if history["t"]:
         lidar_fov=lidar_fov,
         lead_cte=np.array(history["lead_cte"]),
         ref_path=ref_path if leader_mode == LEADER_MODES.PATH else np.empty((0, 2)),
+        lead_cte_front=np.array(history["lead_cte_front"]),
     )
     print(f"Saved results to {output_file}")

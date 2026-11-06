@@ -31,6 +31,7 @@ lidar_fov = float(data["lidar_fov"])
 metrics = [("est", "Estimator Error"), ("trk", "Tracking Error"), ("lat", "Lateral Deviation")]
 has_lead = "lead_cte" in data.files and data["lead_cte"].size > 0
 lead_cte = data["lead_cte"] if has_lead else None
+lead_cte_front = data["lead_cte_front"] if "lead_cte_front" in data.files and data["lead_cte_front"].size > 0 else None
 ref_path = data["ref_path"] if "ref_path" in data.files and data["ref_path"].size > 0 else None
 
 
@@ -58,10 +59,13 @@ for ax_m, (key, title) in zip(ax_metrics, metrics):
     ax_m.tick_params(labelbottom=(ax_m is ax_metrics[-1]))
 if has_lead:
     ax_l = ax_metrics[-1]
-    ax_l.plot(t[:len(lead_cte)], lead_cte, color=colors[0], label="veh 0")
+    ax_l.plot(t[:len(lead_cte)], lead_cte, color=colors[0], label="rear axle")
+    if lead_cte_front is not None:
+        ax_l.plot(t[:len(lead_cte_front)], lead_cte_front, color="k", lw=1, label="front axle")
     ax_l.set_title("Leader Cross-Track Error")
     ax_l.set_ylabel("Error (m)")
     ax_l.grid(alpha=0.3)
+    ax_l.legend(fontsize=7)
 ax_metrics[-1].set_xlabel("Time (s)")
 
 
@@ -117,6 +121,9 @@ if has_lead:
     print("Leader Cross-Track Error (m)")
     print(f"  veh 0: max {np.nanmax(lead_cte):.4f}  median {np.nanmedian(lead_cte):.4f}  "
           f"mean {np.nanmean(lead_cte):.4f}  rms {np.sqrt(np.nanmean(lead_cte**2)):.4f}")
+if lead_cte_front is not None:
+    print(f"  front: max {np.nanmax(lead_cte_front):.4f}  median {np.nanmedian(lead_cte_front):.4f}  "
+          f"mean {np.nanmean(lead_cte_front):.4f}  rms {np.sqrt(np.nanmean(lead_cte_front**2)):.4f}")
 
 fig.tight_layout()
 plt.show()
