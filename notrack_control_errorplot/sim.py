@@ -9,7 +9,7 @@ import numpy as np
 from vehicle import Vehicle
 from ekf import EKF
 from mpc import MPC
-from path_control import Stanley
+from path_control import Stanley, PathMPC
 from path import generatePath
 
 class LEADER_MODES(IntEnum):
@@ -30,9 +30,13 @@ leader_vel = 0.8
 leader_period = 4.0
 leader_max_angle = np.pi/10
 
+leader_controller = "mpc"     # "mpc" or "stanley"
+mpc_N = 20
+mpc_track_point = "front"     # "front" or "rear"
+
 sim_duration = 60  # seconds of simulated time
 sim_dt = 0.1
-output_file = r"./notrack_control_errorplot/data/leader_stanley_scurve.npz"  # where results are saved for plot.py
+output_file = r"./notrack_control_errorplot/data/leader_mpc_front_N20_scurve.npz"  # where results are saved for plot.py
 max_past_poses = 10000
 seed = 2025
 
@@ -111,7 +115,8 @@ path_prefix = np.array([[_lead.x - _back*math.cos(_lead.theta), _lead.y - _back*
 #
 if leader_mode == LEADER_MODES.PATH:
     ref_path = generatePath(48)
-    leader_ctrl = Stanley()
+    leader_ctrl = PathMPC(N=mpc_N, dt=sim_dt, v_ref=leader_vel, delta_max=leader_max_angle,
+                      track_point="front")
     leader_ctrl.set_path(ref_path)
 
 
