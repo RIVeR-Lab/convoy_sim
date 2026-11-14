@@ -8,7 +8,7 @@ from matplotlib.patches import Wedge
 
 
 # Config
-input_file = sys.argv[1] if len(sys.argv) > 1 else r"./notrack_control_errorplot/data/leader_stanley_scurve.npz"
+input_file = sys.argv[1] if len(sys.argv) > 1 else r"./notrack_control_errorplot/data/leader_mpc_front_N20_scurve.npz"
 fig_size = (9*0.95, 6.5*0.95)
 arrow_len = 0.25
 world_size = 2
