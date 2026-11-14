@@ -8,9 +8,8 @@ from matplotlib.patches import Wedge
 
 
 # Config
-input_file = r"./notrack_control_errorplot/data/leader_random_reach5.npz"
-
-fig_size = (9*0.95, 5*0.95)          # figure size in inches (width, height)
+input_file = sys.argv[1] if len(sys.argv) > 1 else r"./notrack_control_errorplot/data/leader_mpc_front_N20_scurve.npz"
+fig_size = (9*0.95, 6.5*0.95)
 arrow_len = 0.25
 world_size = 2
 do_autoscale_world = True   # fit the world plot to the paths taken (ignores world_size)
@@ -30,6 +29,10 @@ follower_ids = list(data["follower_ids"])
 sim_dt = float(data["sim_dt"])
 lidar_fov = float(data["lidar_fov"])
 metrics = [("est", "Estimator Error"), ("trk", "Tracking Error"), ("lat", "Lateral Deviation")]
+has_lead = "lead_cte" in data.files and data["lead_cte"].size > 0
+lead_cte = data["lead_cte"] if has_lead else None
+lead_cte_front = data["lead_cte_front"] if "lead_cte_front" in data.files and data["lead_cte_front"].size > 0 else None
+ref_path = data["ref_path"] if "ref_path" in data.files and data["ref_path"].size > 0 else None
 
 
 def world_z(veh_id, base=0) -> float:
@@ -38,11 +41,12 @@ def world_z(veh_id, base=0) -> float:
 
 
 # One window: world view on the left, error metrics stacked on the right
+n_rows = 4 if has_lead else 3
 fig = plt.figure(figsize=fig_size)
-gs = fig.add_gridspec(3, 2, width_ratios=[1.3, 1])
+gs = fig.add_gridspec(n_rows, 2, width_ratios=[1.3, 1])
 ax = fig.add_subplot(gs[:, 0])
 ax_metrics = [fig.add_subplot(gs[0, 1])]
-ax_metrics += [fig.add_subplot(gs[i, 1], sharex=ax_metrics[0]) for i in (1, 2)]
+ax_metrics += [fig.add_subplot(gs[i, 1], sharex=ax_metrics[0]) for i in range(1, n_rows)]
 
 
 # Metrics
@@ -53,6 +57,15 @@ for ax_m, (key, title) in zip(ax_metrics, metrics):
     ax_m.set_ylabel("Error (m)")
     ax_m.grid(alpha=0.3)
     ax_m.tick_params(labelbottom=(ax_m is ax_metrics[-1]))
+if has_lead:
+    ax_l = ax_metrics[-1]
+    ax_l.plot(t[:len(lead_cte)], lead_cte, color=colors[0], label="rear axle")
+    if lead_cte_front is not None:
+        ax_l.plot(t[:len(lead_cte_front)], lead_cte_front, color="k", lw=1, label="front axle")
+    ax_l.set_title("Leader Cross-Track Error")
+    ax_l.set_ylabel("Error (m)")
+    ax_l.grid(alpha=0.3)
+    ax_l.legend(fontsize=7)
 ax_metrics[-1].set_xlabel("Time (s)")
 
 
@@ -79,6 +92,9 @@ for step in range(label_every, len(t) + 1, label_every):
     ax.plot(mx, my, marker='o', markersize=4, linestyle="", color='k', zorder=world_z(0, 20))
     ax.annotate(f"{step * sim_dt:g}s", (mx, my), xytext=(4, 4), textcoords='offset points', fontsize=8, zorder=world_z(0, 20))
 
+if ref_path is not None:
+    ax.plot(ref_path[:, 0], ref_path[:, 1], 'k--', lw=1, alpha=0.6, label="reference", zorder=0)
+
 if do_autoscale_world:
     pts = poses[:, :, :2].reshape(-1, 2)
     lo, hi = pts.min(axis=0), pts.max(axis=0)
@@ -101,6 +117,13 @@ for key, title in metrics:
         print(f"  veh {k}: max {np.nanmax(v):.4f}  median {np.nanmedian(v):.4f}  mean {np.nanmean(v):.4f}")
     allv = data[key]
     print(f"  overall: max {np.nanmax(allv):.4f}  median {np.nanmedian(allv):.4f}  mean {np.nanmean(allv):.4f}")
+if has_lead:
+    print("Leader Cross-Track Error (m)")
+    print(f"  veh 0: max {np.nanmax(lead_cte):.4f}  median {np.nanmedian(lead_cte):.4f}  "
+          f"mean {np.nanmean(lead_cte):.4f}  rms {np.sqrt(np.nanmean(lead_cte**2)):.4f}")
+if lead_cte_front is not None:
+    print(f"  front: max {np.nanmax(lead_cte_front):.4f}  median {np.nanmedian(lead_cte_front):.4f}  "
+          f"mean {np.nanmean(lead_cte_front):.4f}  rms {np.sqrt(np.nanmean(lead_cte_front**2)):.4f}")
 
 fig.tight_layout()
 plt.show()

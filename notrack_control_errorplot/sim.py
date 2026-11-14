@@ -9,11 +9,14 @@ import numpy as np
 from vehicle import Vehicle
 from ekf import EKF
 from mpc import MPC
+from path_control import Stanley, PathMPC
+from path import generatePath
 
 class LEADER_MODES(IntEnum):
     MANUAL = 0
     CIRCLE = 1
     RANDOM = 2
+    PATH = 3
 
 
 # Config
@@ -21,15 +24,19 @@ num_followers = 4
 following_distance = 1.0
 sit_time = 2
 
-leader_mode = LEADER_MODES.RANDOM
+leader_mode = LEADER_MODES.PATH
 leader_delta = math.pi/12
 leader_vel = 0.8
 leader_period = 4.0
 leader_max_angle = np.pi/10
 
+leader_controller = "mpc"     # "mpc" or "stanley"
+mpc_N = 20
+mpc_track_point = "front"     # "front" or "rear"
+
 sim_duration = 60  # seconds of simulated time
 sim_dt = 0.1
-output_file = r"./notrack_control_errorplot/data/leader_random_reach5.npz"  # where results are saved for plot.py
+output_file = r"./notrack_control_errorplot/data/leader_mpc_front_N20_scurve.npz"  # where results are saved for plot.py
 max_past_poses = 10000
 seed = 2025
 
@@ -105,7 +112,12 @@ _lead = vehicles[0]
 _back = following_distance * num_followers + 1.0
 path_prefix = np.array([[_lead.x - _back*math.cos(_lead.theta), _lead.y - _back*math.sin(_lead.theta)]])
 
-
+#
+if leader_mode == LEADER_MODES.PATH:
+    ref_path = generatePath(48)
+    leader_ctrl = PathMPC(N=mpc_N, dt=sim_dt, v_ref=leader_vel, delta_max=leader_max_angle,
+                      track_point="front")
+    leader_ctrl.set_path(ref_path)
 
 
 
@@ -118,6 +130,8 @@ history = {
     "est": {k: [] for k in follower_ids},
     "trk": {k: [] for k in follower_ids},
     "lat": {k: [] for k in follower_ids},
+    "lead_cte": [],
+    "lead_cte_front": [],
 }
 
 
@@ -290,6 +304,10 @@ try:
             ## Leader control
             if leader_mode == LEADER_MODES.MANUAL:
                 inputs[0] = leader_manual
+            elif leader_mode == LEADER_MODES.PATH:
+                lead = vehicles[0]
+                delta = leader_ctrl.compute(lead.x, lead.y, lead.theta, lead.v)
+                inputs[0] = {'delta': delta, 'vel': leader_vel}
             else:
                 new_input = get_leader_inputs(current_time - start_time)
                 if new_input is not None:
@@ -320,6 +338,12 @@ try:
             est, trk, lat = compute_metrics()
             history["t"].append(current_time - start_time)
             history["poses"].append([(veh.x, veh.y, veh.theta) for veh in vehicles.values()])
+            if leader_mode == LEADER_MODES.PATH:
+                lead = vehicles[0]
+                history["lead_cte"].append(lateral_deviation((lead.x, lead.y), ref_path, key="leader"))
+                fx = lead.x + lead.L * math.cos(lead.theta)
+                fy = lead.y + lead.L * math.sin(lead.theta)
+                history["lead_cte_front"].append(lateral_deviation((fx, fy), ref_path, key="leader_front"))
             for k in follower_ids:
                 history["est"][k].append(est[k])
                 history["trk"][k].append(trk[k])
@@ -373,5 +397,8 @@ if history["t"]:
         lat=np.array([history["lat"][k] for k in follower_ids]).T,
         sim_dt=sim_dt,
         lidar_fov=lidar_fov,
+        lead_cte=np.array(history["lead_cte"]),
+        ref_path=ref_path if leader_mode == LEADER_MODES.PATH else np.empty((0, 2)),
+        lead_cte_front=np.array(history["lead_cte_front"]),
     )
     print(f"Saved results to {output_file}")
